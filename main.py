@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*
 import urwid
 import os
@@ -64,10 +64,14 @@ def sentence_signature(q):
 
 def translate(word):
     zh_re = re.compile('^[\u4e00-\u9fa5，。]+$')
+    # 翻译句子
     if word.count(' ') > 0:
-        return translate_sentence(word)
-    elif zh_re.search(word):
-        return translate_sentence(word, True)
+        # 中文
+        if zh_re.search(word):
+            return translate_sentence(word, True)
+        else:
+            return translate_sentence(word)
+    # 翻译单词
     else:
         return translate_word(word)
 
@@ -205,164 +209,144 @@ def translate_word(word):
     return data
 
 
-terminal_size = os.get_terminal_size()
-lines = terminal_size.lines
-columns = terminal_size.columns - 7
-div_line = '─' * columns
+class Translate:
 
-# 样式
-palette = [('INPUT', 'light green', ''),
-           ('BOX_BORDER', 'light blue', ''),
-           ('TITLE', 'light magenta', '', ''),
-           ('PH', 'brown', ''),
-           ('SY', '', '', '', '#E8DAEF', ''), ]
+    palette = [('INPUT', 'light green', ''),
+               ('BOX_BORDER', 'light blue', ''),
+               ('TITLE', 'light magenta', '', ''),
+               ('PH', 'brown', ''),
+               ('SY', '', '', '', '#E8DAEF', ''), ]
 
-word_input = urwid.Edit(('INPUT', u''))
+    def line(self):
+        terminal_size = os.get_terminal_size()
+        return '─' * (terminal_size.columns - 7)
 
-word_input_padding = urwid.Padding(
-    urwid.AttrWrap(word_input, 'INPUT'), left=2, right=2)
+    def setup_top(self):
+        self.edit_original = urwid.Edit(('INPUT', u''))
+        self.edit_original = urwid.AttrWrap(self.edit_original, 'INPUT')
+        self.edit = urwid.Padding(self.edit_original, left=2, right=2)
+        self.edit = urwid.LineBox(
+            self.edit, tlcorner='╭', trcorner='╮',
+            blcorner='╰', brcorner='╯')
+        self.edit = urwid.AttrWrap(self.edit, '', 'BOX_BORDER')
 
-word_input_box = urwid.LineBox(
-    word_input_padding, tlcorner='╭', trcorner='╮', blcorner='╰', brcorner='╯')
-word_input_box = urwid.AttrWrap(word_input_box, '', 'BOX_BORDER')
+    def setup_result(self):
+        self.phonation = urwid.Text('')
+        self.paraphrase_content = urwid.Text('')
+        self.phrase_title = urwid.Text('')
+        self.phrase_div = urwid.Text('')
+        self.paraphrase_title = urwid.Text('')
+        self.paraphrase_div = urwid.Text('')
+        self.phrase_content = urwid.Text('')
+        self.synonym_title = urwid.Text('')
+        self.synonym_div = urwid.Text('')
+        self.synonym_content = urwid.Text('')
+        self.sentence_title = urwid.Text('')
+        self.sentence_div = urwid.Text('')
+        self.sentence_content = urwid.Text('')
 
-phonation = urwid.Text('')
-paraphrase_content = urwid.Text('')
-phrase_title = urwid.Text('')
-phrase_div = urwid.Text('')
-paraphrase_title = urwid.Text('')
-paraphrase_div = urwid.Text('')
-phrase_content = urwid.Text('')
-synonym_title = urwid.Text('')
-synonym_div = urwid.Text('')
-synonym_content = urwid.Text('')
-sentence_title = urwid.Text('')
-sentence_div = urwid.Text('')
-sentence_content = urwid.Text('')
+        self.list_box = urwid.ListBox([
+            urwid.AttrWrap(self.phonation, 'INPUT'),
+            urwid.AttrWrap(self.paraphrase_title, 'TITLE'),
+            urwid.AttrWrap(self.paraphrase_div, 'BOX_BORDER'),
+            urwid.AttrWrap(self.paraphrase_content, 'PH'),
+            urwid.AttrWrap(self.synonym_title, 'TITLE'),
+            urwid.AttrWrap(self.synonym_div, 'BOX_BORDER'),
+            urwid.AttrWrap(self.synonym_content, 'SY'),
+            urwid.AttrWrap(self.phrase_title, 'TITLE'),
+            urwid.AttrWrap(self.phrase_div, 'BOX_BORDER'),
+            urwid.AttrWrap(self.phrase_content, 'PH'),
+            urwid.AttrWrap(self.sentence_title, 'TITLE'),
+            urwid.AttrWrap(self.sentence_div, 'BOX_BORDER'),
+            urwid.AttrWrap(self.sentence_content, 'SY'),
+        ])
+        box = urwid.LineBox(urwid.Padding(self.list_box, left=2, right=2),
+                            tlcorner='╭', trcorner='╮',
+                            blcorner='╰', brcorner='╯')
+        self.result_out_box = urwid.AttrWrap(box, '', 'BOX_BORDER')
 
+    def setup_view(self):
+        self.setup_top()
+        self.setup_result()
+        self.view = urwid.Frame(self.result_out_box, self.edit, None, 'header')
 
-out_list = [
-    urwid.AttrWrap(phonation, 'INPUT'),
+    def main(self):
+        self.setup_view()
+        screen = urwid.raw_display.Screen()
+        screen.register_palette(self.palette)
+        screen.set_terminal_properties(256)
+        mainloop = urwid.MainLoop(self.view, screen=screen,
+                                  unhandled_input=self.unhandled_input)
+        try:
+            mainloop.run()
+        except KeyboardInterrupt:
+            pass
 
-    urwid.AttrWrap(paraphrase_title, 'TITLE'),
-    urwid.AttrWrap(paraphrase_div, 'BOX_BORDER'),
-    urwid.AttrWrap(paraphrase_content, 'PH'),
+    # def refresh(self, loop=None, data=None):
+    #     self.setup_view()
+    #     loop.widget = self.view
+    #     loop.set_alarm_in(1, self.refresh)
 
-    urwid.AttrWrap(synonym_title, 'TITLE'),
-    urwid.AttrWrap(synonym_div, 'BOX_BORDER'),
-    urwid.AttrWrap(synonym_content, 'SY'),
+    def unhandled_input(self, k):
+        # global last_input
+        # global last_out
+        if isinstance(k, str):
+            if k in ('q', 'Q'):
+                raise urwid.ExitMainLoop()
+            if k == 'esc':
+                self.view.set_focus('body')
+            if k == 'ctrl k':
+                self.edit_original.set_edit_text('')
+                self.view.set_focus('header')
+                self.clear()
 
-    urwid.AttrWrap(phrase_title, 'TITLE'),
-    urwid.AttrWrap(phrase_div, 'BOX_BORDER'),
-    urwid.AttrWrap(phrase_content, 'PH'),
+            if k == 'up' and self.view.get_focus() == 'body':
+                self.view.set_focus('header')
 
-    urwid.AttrWrap(sentence_title, 'TITLE'),
-    urwid.AttrWrap(sentence_div, 'BOX_BORDER'),
-    urwid.AttrWrap(sentence_content, 'SY'),
-]
+            if k == 'down' and self.view.get_focus() == 'header':
+                self.view.set_focus('body')
 
-list_box = urwid.ListBox(out_list)
-box = urwid.Padding(list_box, left=2, right=2)
-box = urwid.LineBox(box, tlcorner='╭', trcorner='╮',
-                    blcorner='╰', brcorner='╯')
-box = urwid.AttrWrap(box, '', 'BOX_BORDER')
-
-result_out_box = urwid.BoxAdapter(box, height=lines - 3)
-
-pile = urwid.Pile([
-    word_input_box,
-    result_out_box
-])
-
-top = urwid.Filler(pile, valign='top')
-top = urwid.AttrWrap(top, 'body')
-
-
-last_input = ''
-last_out = ''
-
-count = 0
-
-
-def unhandled_input(k):
-    global last_input
-    global last_out
-    if isinstance(k, str):
-        if k in ('q', 'Q'):
-            raise urwid.ExitMainLoop()
-        if k == 'esc':
-            pile.set_focus(result_out_box)
-        if k == 'ctrl k':
-            word_input.edit_text = ''
-            pile.set_focus(word_input_box)
-            clear()
-        if k == 'ctrl d':
-            list_box.keypress((200, lines - 8), 'page down')
-        if k == 'ctrl u':
-            list_box.keypress((200, lines - 8), 'page up')
-        if k in 'enter':
-            current_input = word_input.get_edit_text().strip()
-            if current_input:
-                if current_input != last_input:
-                    clear()
+            if k in 'enter':
+                current_input = self.edit_original.get_edit_text().strip()
+                if current_input:
                     data = translate(current_input)
-                    last_input = current_input
-                    last_out = data
-                else:
-                    data = last_out
-                if data['phonation']:
-                    phonation.set_text(data['phonation'])
-                if data['paraphrase_content']:
-                    paraphrase_title.set_text('\n释义')
-                    paraphrase_div.set_text(div_line)
-                    paraphrase_content.set_text(
-                        data['paraphrase_content'])
-                if data['synonym_content']:
-                    synonym_title.set_text('\n同义词')
-                    synonym_div.set_text(div_line)
-                    synonym_content.set_text(data['synonym_content'])
-                if data['sentence_content']:
-                    sentence_title.set_text('\n例句')
-                    sentence_div.set_text(div_line)
-                    sentence_content.set_text(data['sentence_content'])
-                if data['phrase_content']:
-                    phrase_title.set_text('\n词组')
-                    phrase_div.set_text(div_line)
-                    phrase_content.set_text(data['phrase_content'])
-    else:
-        if k[0] == 'mouse press':
-            global count
-            if k[1] == 5.0:
-                count += 1
-                if count > 5:
-                    list_box.keypress((200, 8), 'down')
-                    count = 0
-            elif k[1] == 4.0:
-                count += 1
-                if count > 5:
-                    list_box.keypress((200, 8), 'up')
-                    count = 0
+                    if data['phonation']:
+                        self.phonation.set_text(data['phonation'])
+                    if data['paraphrase_content']:
+                        self.paraphrase_title.set_text('\n释义')
+                        self.paraphrase_div.set_text(self.line())
+                        self.paraphrase_content.set_text(
+                            data['paraphrase_content'])
+                    if data['synonym_content']:
+                        self.synonym_title.set_text('\n同义词')
+                        self.synonym_div.set_text(self.line())
+                        self.synonym_content.set_text(data['synonym_content'])
+                    if data['sentence_content']:
+                        self.sentence_title.set_text('\n例句')
+                        self.sentence_div.set_text(self.line())
+                        self.sentence_content.set_text(
+                            data['sentence_content'])
+                    if data['phrase_content']:
+                        self.phrase_title.set_text('\n词组')
+                        self.phrase_div.set_text(self.line())
+                        self.phrase_content.set_text(data['phrase_content'])
 
+    def clear(self):
+        self.phonation.set_text('')
+        self.paraphrase_title.set_text('')
+        self.paraphrase_div.set_text('')
+        self.paraphrase_content.set_text('')
+        self.phrase_title.set_text('')
+        self.phrase_div.set_text('')
+        self.phrase_content.set_text('')
+        self.synonym_title.set_text('')
+        self.synonym_div.set_text('')
+        self.synonym_content.set_text('')
+        self.sentence_title.set_text('')
+        self.sentence_div.set_text('')
+        self.sentence_content.set_text('')
 
-def clear():
-    phonation.set_text('')
-    paraphrase_title.set_text('')
-    paraphrase_div.set_text('')
-    paraphrase_content.set_text('')
-    phrase_title.set_text('')
-    phrase_div.set_text('')
-    phrase_content.set_text('')
-    synonym_title.set_text('')
-    synonym_div.set_text('')
-    synonym_content.set_text('')
-    sentence_title.set_text('')
-    sentence_div.set_text('')
-    sentence_content.set_text('')
-
-
-screen = urwid.raw_display.Screen()
-screen.register_palette(palette)
-screen.set_terminal_properties(256)
 
 if __name__ == '__main__':
-    urwid.MainLoop(top, screen=screen, unhandled_input=unhandled_input).run()
+    translat = Translate()
+    translat.main()
